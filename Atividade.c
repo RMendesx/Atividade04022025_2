@@ -1,5 +1,4 @@
 #include "pico/stdlib.h"
-#include "hardware/irq.h"
 #include "hardware/timer.h"
 
 // Definir pinos dos LEDs e do botão
@@ -16,6 +15,7 @@ enum led_state {
 };
 
 volatile enum led_state current_state = ALL_ON;
+volatile bool button_pressed = false;
 
 // Função para alterar os LEDs com base no estado
 void update_leds() {
@@ -40,29 +40,19 @@ void update_leds() {
 
 // Função de callback do temporizador para mudar o estado
 bool timer_callback(repeating_timer_t *rt) {
-    if (current_state == ALL_ON) {
-        current_state = TWO_ON;
-    } else if (current_state == TWO_ON) {
-        current_state = ONE_ON;
-    } else {
-        current_state = ALL_ON;
+    if (button_pressed) {
+        if (current_state == ALL_ON) {
+            current_state = TWO_ON;
+        } else if (current_state == TWO_ON) {
+            current_state = ONE_ON;
+        } else {
+            current_state = ALL_ON;
+        }
+        
+        update_leds();
+        button_pressed = false;  // Resetando para permitir o próximo clique
     }
-    
-    update_leds();
-    
     return true;  // Retornar true para continuar o temporizador
-}
-
-// Função de debounce de botão
-bool debounce_button() {
-    static uint32_t last_time = 0;
-    uint32_t current_time = to_ms_since_boot(get_absolute_time());
-    
-    if (current_time - last_time > 200) {  // 200ms debounce
-        last_time = current_time;
-        return true;
-    }
-    return false;
 }
 
 // Função principal
@@ -88,11 +78,8 @@ int main() {
 
     // Loop principal
     while (true) {
-        if (gpio_get(BUTTON_PIN) == 0 && debounce_button()) {  // Botão pressionado
-            if (current_state == ONE_ON) {  // Só permite o clique quando o último LED estiver desligado
-                current_state = ALL_ON;  // Iniciar a sequência
-                update_leds();
-            }
+        if (gpio_get(BUTTON_PIN) == 0) {  // Botão pressionado
+            button_pressed = true;
         }
     }
 

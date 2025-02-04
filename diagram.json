@@ -4,13 +4,13 @@
   "editor": "wokwi",
   "parts": [
     { "type": "board-pi-pico-w", "id": "pico", "top": -12.85, "left": 243.55, "attrs": {} },
-    { "type": "wokwi-led", "id": "led1", "top": 25.2, "left": 99.8, "attrs": { "color": "red" } },
+    { "type": "wokwi-led", "id": "led1", "top": 25.2, "left": 99.8, "attrs": { "color": "blue" } },
     {
       "type": "wokwi-led",
       "id": "led2",
       "top": 73.2,
       "left": 99.8,
-      "attrs": { "color": "yellow" }
+      "attrs": { "color": "red" }
     },
     {
       "type": "wokwi-led",
@@ -45,7 +45,7 @@
       "id": "btn1",
       "top": -3.4,
       "left": 153.6,
-      "attrs": { "color": "green" }
+      "attrs": { "color": "yellow" }
     }
   ],
   "connections": [
