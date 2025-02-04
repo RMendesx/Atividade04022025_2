@@ -1,87 +1,62 @@
+#include <stdio.h>
 #include "pico/stdlib.h"
+#include "hardware/gpio.h"
 #include "hardware/timer.h"
 
-// Definir pinos dos LEDs e do botão
-#define LED_BLUE_PIN 11
-#define LED_RED_PIN 12
-#define LED_GREEN_PIN 13
-#define BUTTON_PIN 5
+#define LED_BLUE 11
+#define LED_RED 12
+#define LED_GREEN 13
+#define BUTTON 5
 
-// Definir estados para os LEDs
-enum led_state {
-    ALL_ON,
-    TWO_ON,
-    ONE_ON
-};
+bool is_active = false;  // Flag para impedir múltiplos disparos
 
-volatile enum led_state current_state = ALL_ON;
-volatile bool button_pressed = false;
+// Callback para desligar o LED vermelho e manter o verde
+int64_t turn_off_red(alarm_id_t id, void *user_data) {
+    gpio_put(LED_RED, 0);
+    return 0;
+}
 
-// Função para alterar os LEDs com base no estado
-void update_leds() {
-    switch (current_state) {
-        case ALL_ON:
-            gpio_put(LED_BLUE_PIN, 1);
-            gpio_put(LED_RED_PIN, 1);
-            gpio_put(LED_GREEN_PIN, 1);
-            break;
-        case TWO_ON:
-            gpio_put(LED_BLUE_PIN, 0);
-            gpio_put(LED_RED_PIN, 1);
-            gpio_put(LED_GREEN_PIN, 1);
-            break;
-        case ONE_ON:
-            gpio_put(LED_BLUE_PIN, 0);
-            gpio_put(LED_RED_PIN, 0);
-            gpio_put(LED_GREEN_PIN, 1);
-            break;
+// Callback para desligar o LED azul e manter o vermelho
+int64_t turn_off_blue(alarm_id_t id, void *user_data) {
+    gpio_put(LED_BLUE, 0);
+    add_alarm_in_ms(3000, turn_off_red, NULL, false);
+    return 0;
+}
+
+// Callback para desligar o LED verde e permitir novo acionamento
+int64_t turn_off_green(alarm_id_t id, void *user_data) {
+    gpio_put(LED_GREEN, 0);
+    is_active = false; // Permite novo acionamento
+    return 0;
+}
+
+void button_callback(uint gpio, uint32_t events) {
+    if (!is_active) {
+        is_active = true; // Bloqueia novos acionamentos até o ciclo terminar
+        gpio_put(LED_BLUE, 1);
+        gpio_put(LED_RED, 1);
+        gpio_put(LED_GREEN, 1);
+        add_alarm_in_ms(3000, turn_off_blue, NULL, false);
+        add_alarm_in_ms(9000, turn_off_green, NULL, false);
     }
 }
 
-// Função de callback do temporizador para mudar o estado
-bool timer_callback(repeating_timer_t *rt) {
-    if (button_pressed) {
-        if (current_state == ALL_ON) {
-            current_state = TWO_ON;
-        } else if (current_state == TWO_ON) {
-            current_state = ONE_ON;
-        } else {
-            current_state = ALL_ON;
-        }
-        
-        update_leds();
-        button_pressed = false;  // Resetando para permitir o próximo clique
-    }
-    return true;  // Retornar true para continuar o temporizador
-}
-
-// Função principal
 int main() {
     stdio_init_all();
-
-    // Inicializar os pinos dos LEDs
-    gpio_init(LED_BLUE_PIN);
-    gpio_set_dir(LED_BLUE_PIN, GPIO_OUT);
-    gpio_init(LED_RED_PIN);
-    gpio_set_dir(LED_RED_PIN, GPIO_OUT);
-    gpio_init(LED_GREEN_PIN);
-    gpio_set_dir(LED_GREEN_PIN, GPIO_OUT);
-
-    // Inicializar o pino do botão
-    gpio_init(BUTTON_PIN);
-    gpio_set_dir(BUTTON_PIN, GPIO_IN);
-    gpio_pull_up(BUTTON_PIN);  // Ativar o resistor pull-up interno
-
-    // Configurar o temporizador para chamar a função de callback a cada 3 segundos
-    repeating_timer_t timer;
-    add_repeating_timer_ms(3000, timer_callback, NULL, &timer);
-
-    // Loop principal
-    while (true) {
-        if (gpio_get(BUTTON_PIN) == 0) {  // Botão pressionado
-            button_pressed = true;
-        }
+    gpio_init(LED_BLUE);
+    gpio_init(LED_RED);
+    gpio_init(LED_GREEN);
+    gpio_init(BUTTON);
+    
+    gpio_set_dir(LED_BLUE, GPIO_OUT);
+    gpio_set_dir(LED_RED, GPIO_OUT);
+    gpio_set_dir(LED_GREEN, GPIO_OUT);
+    gpio_set_dir(BUTTON, GPIO_IN);
+    gpio_pull_up(BUTTON);
+    
+    gpio_set_irq_enabled_with_callback(BUTTON, GPIO_IRQ_EDGE_FALL, true, &button_callback);
+    
+    while (1) {
+        tight_loop_contents();
     }
-
-    return 0;
 }

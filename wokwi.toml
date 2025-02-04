@@ -1,4 +1,5 @@
 [wokwi]
 version = 1
+uart = 'usb'
 firmware = 'build/Atividade.uf2'
 elf = 'build/Atividade.elf'
